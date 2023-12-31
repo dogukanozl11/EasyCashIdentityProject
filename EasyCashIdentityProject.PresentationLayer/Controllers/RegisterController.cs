@@ -1,7 +1,10 @@
 ﻿using EasyCashIdentityProject.DtoLayer.Dtos.AppUserDtos;
 using EasyCashIdentityProject.EntityLayer.Concrete;
+using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using MimeKit;
+using System.Diagnostics;
 
 namespace EasyCashIdentityProject.PresentationLayer.Controllers
 {
@@ -23,6 +26,11 @@ namespace EasyCashIdentityProject.PresentationLayer.Controllers
         {
             if (ModelState.IsValid)
             {
+                Random random = new Random();
+                int code;
+                code = random.Next(100000, 1000000);
+
+
                 AppUser appUser = new AppUser()
                 {
                     UserName = appUserRegisterDto.Username,
@@ -31,11 +39,33 @@ namespace EasyCashIdentityProject.PresentationLayer.Controllers
                     Email = appUserRegisterDto.Email,
                     City="aaaa",
                     District="bbbb",
-                    ImageUrl="cccc"
+                    ImageUrl="cccc",
+                    ConfirmCode=code
                 };
                 var result = await _userManager.CreateAsync(appUser, appUserRegisterDto.Password);
                 if (result.Succeeded)
                 {
+                    MimeMessage mimeMessage = new MimeMessage();
+                    MailboxAddress mailboxAddressFrom = new MailboxAddress("Esay Cash Admin", "dogukanozel692@gmail.com");
+                    MailboxAddress mailboxAddressTo = new MailboxAddress("User", appUser.Email);
+
+                    mimeMessage.From.Add(mailboxAddressFrom);
+                    mimeMessage.To.Add(mailboxAddressTo);
+
+                    var bodyBuilder = new BodyBuilder();
+                    bodyBuilder.TextBody = "Kayıt işlemnini gerçekleşirmek için onay kodunuz : " + code;
+                    mimeMessage.Body=bodyBuilder.ToMessageBody();
+
+                    mimeMessage.Subject = "Easy Cash Uygulaması Örnek Onay Kodu (Doğukan ÖZEL)";
+
+                    SmtpClient client = new SmtpClient();
+                    client.Connect("smtp.gmail.com", 587, false);
+                    client.Authenticate("dogukanozel692@gmail.com", "************");
+                    client.Send(mimeMessage);
+                    client.Disconnect(true);
+
+                    TempData["Mail"] = appUserRegisterDto.Email;
+
                     return RedirectToAction("Index", "ConfirmMail");
                 }
                 else
@@ -50,8 +80,3 @@ namespace EasyCashIdentityProject.PresentationLayer.Controllers
         }
     }
 }
-// En az 6 karakterden oluşacak
-// En az 1 küçük harf
-// En az 1 büyük harf
-// En az 1 sembol 
-// En az 1 sayı içermeli
